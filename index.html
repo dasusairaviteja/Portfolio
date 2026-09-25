@@ -26,6 +26,39 @@
     @media print{header,.actions,.skip{display:none!important}:root{--bg:#fff;--alt:#fff;--surface:#fff;--text:#111;--muted:#444;--primary:#111;--accent:#253762;--line:#ccc;--shadow:none}.hero{background:#fff;color:#111;padding:20px}.hero p,.hero .socials a,.hero-role,.eyebrow{color:#333}.section{padding:20px 0}.section-label{margin-bottom:15px}.section h2{font-size:20px}.job,.project{break-inside:avoid}h1{font-size:32px}}
   
     @media(max-width:380px){.brand{font-size:16px;white-space:normal;line-height:1.3;min-width:0}.hero-role{border-radius:12px}}
+
+/* Portfolio motion: progressive enhancement, no external dependencies. */
+@keyframes arrive{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ambient{from{opacity:.25;transform:translate3d(-3%,0,0) scale(.94)}to{opacity:.65;transform:translate3d(3%,-2%,0) scale(1.04)}}
+@keyframes underline-in{from{transform:scaleX(.2)}to{transform:scaleX(1)}}
+.hero{position:relative;isolation:isolate;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-15%;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 25% 35%,rgba(124,160,255,.38),transparent 55%);animation:ambient 4s ease-in-out 1 alternate both}
+.button,.theme,.role-card,.skill-list li,.job,.project{transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+nav a{position:relative;padding:6px 0}
+nav a::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .25s ease}
+nav a:hover::after,nav a:focus-visible::after,nav a[aria-current]::after{transform:scaleX(1)}
+@media(prefers-reduced-motion:no-preference){
+.hero-inner>*{animation:arrive .7s cubic-bezier(.2,.7,.2,1) both}
+.hero-inner>:nth-child(2){animation-delay:.08s}
+.hero-inner>:nth-child(3){animation-delay:.16s}
+.hero-inner>:nth-child(4){animation-delay:.24s}
+.hero-inner>:nth-child(5){animation-delay:.32s}
+.hero-inner>:nth-child(6){animation-delay:.4s}
+.hero-inner>:nth-child(7){animation-delay:.48s}
+.section-label.entered h2::after{animation:underline-in .65s ease both}
+}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+.role-card:hover,.skill-list li:hover,.job:hover,.project:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 16px 34px rgba(43,58,103,.13)}
+.button:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.theme:hover{transform:rotate(15deg)}
+}
+@media(prefers-reduced-motion:reduce){
+html{scroll-behavior:auto}
+.hero::before,.hero-inner>*,.section-label.entered h2::after{animation:none!important}
+.button,.theme,.role-card,.skill-list li,.job,.project,nav a::after{transition:none!important}
+}
+@media print{.hero::before{display:none}.hero-inner>*{animation:none!important}}
+
 </style>
 </head>
 <body id="top">
@@ -117,5 +150,44 @@
       }
     })();
   </script>
+
+<script>
+/* Scroll reveals run only when elements enter view. Content is never hidden
+   while waiting for JavaScript or an observer callback. */
+(() => {
+  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (!('IntersectionObserver' in window) || !Element.prototype.animate) return;
+  const active = new Set();
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(entry.target);
+      if (motion.matches) return;
+      entry.target.classList.add('entered');
+      const siblings = Array.from(entry.target.parentElement.children);
+      const stagger = entry.target.matches('.project, .skill-list li')
+        ? (siblings.indexOf(entry.target) % 3) * 70 : 0;
+      const animation = entry.target.animate(
+        [{opacity: 0, transform: 'translateY(22px)'}, {opacity: 1, transform: 'translateY(0)'}],
+        {duration: 620, delay: stagger, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards'}
+      );
+      active.add(animation);
+      animation.onfinish = animation.oncancel = () => active.delete(animation);
+    });
+  }, {threshold: 0.08});
+  document.querySelectorAll('.section-label, .about-grid>div, .role-card, .skill-list li, .job, .project, .contact-body')
+    .forEach(element => observer.observe(element));
+  const stopMotion = () => {
+    if (motion.matches) active.forEach(animation => animation.cancel());
+  };
+  if (motion.addEventListener) motion.addEventListener('change', stopMotion);
+  window.addEventListener('beforeprint', () => active.forEach(animation => animation.cancel()));
+  document.addEventListener('focusin', () => active.forEach(animation => {
+    const element = animation.effect && animation.effect.target;
+    if (element && element.contains(document.activeElement)) animation.cancel();
+  }));
+})();
+</script>
+
 </body>
 </html>
